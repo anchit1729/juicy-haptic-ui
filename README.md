@@ -1,7 +1,7 @@
 # Juicy Haptic UI
 
 A macOS menu bar app with optional trackpad feel enhancements.
-The Xcode target keeps its `AmbientHaptics` name to retain saved settings and Keychain access.
+The internal target, bundle identifier, and storage paths keep their names. Existing settings and Keychain entries continue to work.
 The current trackpad mode adds spaced taps while you scroll, drag, or click.
 The earlier audio mode remains in the project for ambient weather and message patterns.
 
