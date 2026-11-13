@@ -90,6 +90,18 @@ enum SourceCatalogue {
     }
 }
 
+enum SourceCueResolver {
+    static func pattern(
+        for event: SourceEvent,
+        configurations: [SourceConfiguration],
+        patterns: [HapticPattern]
+    ) -> HapticPattern? {
+        guard let source = configurations.first(where: { $0.id == event.sourceID && $0.enabled }),
+              let patternID = source.cuePatternIDs[event.kind] else { return nil }
+        return patterns.first(where: { $0.id == patternID })
+    }
+}
+
 enum PatternMapper {
     static func apply(_ pattern: HapticPattern, mappings: [ValueMapping], values: [String: Double]) -> HapticPattern {
         var result = pattern

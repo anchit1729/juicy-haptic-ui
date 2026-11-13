@@ -1,3 +1,4 @@
+import AppKit
 import CoreAudio
 import Foundation
 import Combine
@@ -18,7 +19,10 @@ final class AppModel: ObservableObject {
     @Published var sandyScrollingEnabled = false
     @Published var dragTicksEnabled = false
     @Published var splashClicksEnabled = false
+    @Published var secondaryClicksEnabled = false
+    @Published var gesturesEnabled = false
     @Published var cursorEffectsEnabled = false
+    @Published var appCuesEnabled = false
     @Published var grainSpacing = 18.0
     @Published private(set) var trackpadTickRequests = 0
     @Published var isPaused = true
@@ -78,7 +82,10 @@ final class AppModel: ObservableObject {
         sandyScrollingEnabled = UserDefaults.standard.bool(forKey: "trackpad.sandyScrolling")
         dragTicksEnabled = UserDefaults.standard.bool(forKey: "trackpad.dragTicks")
         splashClicksEnabled = UserDefaults.standard.bool(forKey: "trackpad.splashClicks")
+        secondaryClicksEnabled = UserDefaults.standard.bool(forKey: "trackpad.secondaryClicks")
+        gesturesEnabled = UserDefaults.standard.bool(forKey: "trackpad.gestures")
         cursorEffectsEnabled = UserDefaults.standard.bool(forKey: "trackpad.cursorEffects")
+        appCuesEnabled = UserDefaults.standard.bool(forKey: "trackpad.appCues")
         if UserDefaults.standard.object(forKey: "trackpad.grainSpacing") != nil {
             grainSpacing = UserDefaults.standard.double(forKey: "trackpad.grainSpacing")
         }
@@ -124,7 +131,7 @@ final class AppModel: ObservableObject {
         microsoftClientID = UserDefaults.standard.string(forKey: "outlook.clientID") ?? ""
         slackAppToken = KeychainSecrets.load("slack.appToken") ?? ""
         slackAllowedTeams = UserDefaults.standard.string(forKey: "slack.allowedTeams") ?? ""
-        if outputMode == .audio { resumeInformationSources() }
+        resumeInformationSources()
         meterTask = Task { [weak self] in
             while !Task.isCancelled {
                 self?.outputLevel = self?.audio.currentOutputLevel ?? 0
@@ -178,23 +185,28 @@ final class AppModel: ObservableObject {
         trackpad.stop()
         trackpadEnhancer.stop()
         cursorEffects.stop()
-        if mode == .trackpad { suspendInformationSources() }
+        suspendInformationSources()
         ambientPlaybackEnabled = false
         outputMode = mode
         UserDefaults.standard.set(mode.rawValue, forKey: "output.mode")
         status = mode == .trackpad
             ? "Trackpad mode selected. Resume to use enabled interaction effects."
             : "Select the audio output connected to the N22."
-        if mode == .audio { resumeInformationSources() }
+        resumeInformationSources()
         syncTrackpadEnhancements()
     }
 
     private func resumeInformationSources() {
-        if weatherDataEnabled { startWeatherUpdates() }
+        if outputMode == .audio && weatherDataEnabled { startWeatherUpdates() }
+        guard canUseMessageSources else { return }
         if !microsoftClientID.isEmpty && KeychainSecrets.load("outlook.refreshToken") != nil {
             startOutlookPolling()
         }
         if !slackAppToken.isEmpty { connectSlack() }
+    }
+
+    private var canUseMessageSources: Bool {
+        outputMode == .audio || (outputMode == .trackpad && appCuesEnabled)
     }
 
     private func suspendInformationSources() {
@@ -231,6 +243,38 @@ final class AppModel: ObservableObject {
         syncTrackpadEnhancements()
     }
 
+    func setSecondaryClicksEnabled(_ enabled: Bool) {
+        secondaryClicksEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: "trackpad.secondaryClicks")
+        syncTrackpadEnhancements()
+    }
+
+    func setGesturesEnabled(_ enabled: Bool) {
+        gesturesEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: "trackpad.gestures")
+        syncTrackpadEnhancements()
+    }
+
+    func setAppCuesEnabled(_ enabled: Bool) {
+        appCuesEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: "trackpad.appCues")
+        guard outputMode == .trackpad else { return }
+        if enabled { resumeInformationSources() }
+        else { suspendInformationSources() }
+    }
+
+    func setMessageSourceEnabled(_ sourceID: String, _ enabled: Bool) {
+        guard let index = sourceConfigurations.firstIndex(where: { $0.id == sourceID }) else { return }
+        sourceConfigurations[index].enabled = enabled
+        saveSourceSettings()
+    }
+
+    func setMessageCuePattern(_ sourceID: String, kind: String, patternID: UUID) {
+        guard let index = sourceConfigurations.firstIndex(where: { $0.id == sourceID }) else { return }
+        sourceConfigurations[index].cuePatternIDs[kind] = patternID
+        saveSourceSettings()
+    }
+
     func setCursorEffectsEnabled(_ enabled: Bool) {
         cursorEffectsEnabled = enabled
         UserDefaults.standard.set(enabled, forKey: "trackpad.cursorEffects")
@@ -253,11 +297,13 @@ final class AppModel: ObservableObject {
             scroll: sandyScrollingEnabled,
             drag: dragTicksEnabled,
             clicks: splashClicksEnabled,
+            secondaryClicks: secondaryClicksEnabled,
+            gestures: gesturesEnabled,
             grainSpacing: grainSpacing
         )
         if !monitoringAvailable {
             status = "macOS did not allow systemwide motion monitoring. Local app ticks may still work."
-        } else if sandyScrollingEnabled || dragTicksEnabled || splashClicksEnabled {
+        } else if sandyScrollingEnabled || dragTicksEnabled || splashClicksEnabled || secondaryClicksEnabled || gesturesEnabled {
             status = "Trackpad interaction effects are active."
         } else {
             status = "Trackpad ready for manual previews."
@@ -487,7 +533,7 @@ final class AppModel: ObservableObject {
                 try saveOutlookToken(token)
                 outlookUserCode = ""
                 outlookStatus = "Outlook connected."
-                startOutlookPolling()
+                if canUseMessageSources { startOutlookPolling() }
             } catch is CancellationError {
                 outlookStatus = "Outlook sign-in stopped."
             } catch {
@@ -515,6 +561,7 @@ final class AppModel: ObservableObject {
     }
 
     private func startOutlookPolling() {
+        guard canUseMessageSources else { return }
         outlookTask?.cancel()
         outlookTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -532,11 +579,11 @@ final class AppModel: ObservableObject {
                     return
                 }
                 let token = try await outlookSource.refresh(clientID: microsoftClientID, refreshToken: refresh)
-                guard outputMode == .audio, !Task.isCancelled else { return }
+                guard canUseMessageSources, !Task.isCancelled else { return }
                 try saveOutlookToken(token)
             }
             let inbox = try await outlookSource.fetchInbox(accessToken: outlookAccessToken)
-            guard outputMode == .audio, !Task.isCancelled else { return }
+            guard canUseMessageSources, !Task.isCancelled else { return }
             let now = Date()
             let events = outlookTracker.newEvents(from: inbox, at: now)
             outlookEventTimes.append(contentsOf: events.map(\.occurredAt))
@@ -549,7 +596,7 @@ final class AppModel: ObservableObject {
             for event in events { receive(event) }
             outlookStatus = "Outlook checked at \(now.formatted(date: .omitted, time: .shortened))."
         } catch {
-            if outputMode == .audio && !Task.isCancelled {
+            if canUseMessageSources && !Task.isCancelled {
                 outlookStatus = "Outlook check failed: \(error.localizedDescription)"
             }
         }
@@ -569,6 +616,10 @@ final class AppModel: ObservableObject {
             try KeychainSecrets.save(slackAppToken, for: "slack.appToken")
         } catch {
             slackStatus = "Cannot save Slack token: \(error.localizedDescription)"
+            return
+        }
+        guard canUseMessageSources else {
+            slackStatus = "Slack saved. Enable app cues to connect."
             return
         }
         slackTask = Task { [weak self] in
@@ -591,13 +642,14 @@ final class AppModel: ObservableObject {
     }
 
     private func receiveSlackMessages() async {
+        guard canUseMessageSources else { return }
         do {
             let url = try await slackSource.socketURL(appToken: slackAppToken)
             let socket = URLSession.shared.webSocketTask(with: url)
             slackSocket = socket
             socket.resume()
             slackStatus = "Slack connected. Waiting for messages."
-            while !Task.isCancelled {
+            while !Task.isCancelled && canUseMessageSources {
                 let message = try await socket.receive()
                 let data: Data
                 switch message {
@@ -614,7 +666,7 @@ final class AppModel: ObservableObject {
                     String($0).trimmingCharacters(in: .whitespacesAndNewlines)
                 })
                 guard let event = envelope.directMessage(allowedTeams: allowed) else { continue }
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled, canUseMessageSources else { return }
                 let now = Date()
                 slackEventTimes.append(now)
                 slackEventTimes.removeAll { now.timeIntervalSince($0) > 3600 }
@@ -627,7 +679,7 @@ final class AppModel: ObservableObject {
                 slackStatus = "Slack message received at \(now.formatted(date: .omitted, time: .shortened))."
             }
         } catch {
-            if outputMode == .audio && !Task.isCancelled {
+            if canUseMessageSources && !Task.isCancelled {
                 slackStatus = "Slack connection failed: \(error.localizedDescription)"
             }
         }
@@ -639,27 +691,46 @@ final class AppModel: ObservableObject {
                   let source = sourceConfigurations.first(where: { $0.id == sourceID }),
                   let patternID = source.cuePatternIDs[kind],
                   let pattern = patterns.first(where: { $0.id == patternID }) else { return }
-            trackpad.playPreview(pattern)
-            status = "Trackpad cue preview uses pulse timing only."
+            playTrackpadSourceCue(pattern, sourceID: sourceID)
+            status = "Trackpad \(sourceID.capitalized) cue preview started."
             return
         }
         receive(SourceEvent(id: "test:\(UUID())", sourceID: sourceID, kind: kind, occurredAt: Date()))
     }
 
     private func receive(_ event: SourceEvent) {
-        guard outputMode == .audio,
+        guard canUseMessageSources,
               !isPaused,
-              selectedDeviceID != 0,
-              let source = sourceConfigurations.first(where: { $0.id == event.sourceID }),
-              source.enabled,
-              let patternID = source.cuePatternIDs[event.kind],
-              let pattern = patterns.first(where: { $0.id == patternID }),
-              eventGate.shouldPlay(event) else { return }
+              let pattern = SourceCueResolver.pattern(
+                for: event,
+                configurations: sourceConfigurations,
+                patterns: patterns
+              ) else { return }
+        if outputMode == .audio && selectedDeviceID == 0 { return }
+        guard eventGate.shouldPlay(event) else { return }
+        if outputMode == .trackpad {
+            playTrackpadSourceCue(pattern, sourceID: event.sourceID)
+            status = "\(event.sourceID.capitalized) trackpad cue played."
+            return
+        }
         do {
             try audio.playCue(pattern, on: selectedDeviceID, strength: outputStrength)
             status = "\(event.sourceID.capitalized) cue played."
         } catch {
             status = "Cue failed: \(error.localizedDescription)"
+        }
+    }
+
+    private func playTrackpadSourceCue(_ pattern: HapticPattern, sourceID: String) {
+        trackpad.playPreview(pattern) { [weak self] stage in
+            guard let self else { return }
+            self.trackpadTickRequests += 1
+            if self.cursorEffectsEnabled {
+                self.cursorEffects.show(TrackpadFeedbackEvent(
+                    kind: .sourceCue(sourceID: sourceID, stage: stage),
+                    location: NSEvent.mouseLocation
+                ))
+            }
         }
     }
 

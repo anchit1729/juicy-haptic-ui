@@ -35,8 +35,14 @@ enum ClickRipple: Equatable {
 
 enum TrackpadVisualKind {
     case scrollGrain
+    case horizontalGrain
     case dragTick
     case clickRipple(isDouble: Bool, stage: Int)
+    case secondaryClick
+    case zoom(outward: Bool)
+    case smartZoom
+    case swipe(horizontal: Bool, positive: Bool)
+    case sourceCue(sourceID: String, stage: Int)
 }
 
 struct TrackpadFeedbackEvent {
@@ -73,7 +79,7 @@ struct ClickRippleClassifier {
     }
 }
 
-/// Reads scroll, drag, and click events. It never changes or stores the input events.
+/// Reads pointer and gesture events. It never changes or stores the input events.
 @MainActor
 final class TrackpadInteractionEnhancer {
     var onTick: ((TrackpadFeedbackEvent) -> Void)?
@@ -83,11 +89,17 @@ final class TrackpadInteractionEnhancer {
     private var localMonitor: Any?
     private var scrollGate = DistanceTickGate(spacing: 18, minimumInterval: 0.10)
     private var dragGate = DistanceTickGate(spacing: 32, minimumInterval: 0.15)
+    private var zoomGate = DistanceTickGate(spacing: 0.12, minimumInterval: 0.15)
     private var lastDragPoint: NSPoint?
+    private var dragDistance = 0.0
     private var lastFeedbackAt = -Double.infinity
+    private var lastSwipeAt = -Double.infinity
     private var scrollEnabled = false
     private var dragEnabled = false
     private var clickEnabled = false
+    private var secondaryClickEnabled = false
+    private var gesturesEnabled = false
+    private var secondaryPressed = false
     private var clickClassifier = ClickRippleClassifier()
     private var clickTask: Task<Void, Never>?
 
@@ -95,15 +107,21 @@ final class TrackpadInteractionEnhancer {
 
     /// Returns false when macOS declines the systemwide monitor.
     @discardableResult
-    func configure(scroll: Bool, drag: Bool, clicks: Bool, grainSpacing: Double) -> Bool {
+    func configure(scroll: Bool, drag: Bool, clicks: Bool, secondaryClicks: Bool, gestures: Bool, grainSpacing: Double) -> Bool {
         scrollEnabled = scroll
         dragEnabled = drag
         clickEnabled = clicks
+        secondaryClickEnabled = secondaryClicks
+        gesturesEnabled = gestures
         scrollGate.spacing = min(40, max(8, grainSpacing))
         if !clicks { cancelClickRipple() }
-        guard scroll || drag || clicks else { stop(); return true }
+        guard scroll || drag || clicks || secondaryClicks || gestures else { stop(); return true }
         if globalMonitor == nil && localMonitor == nil {
-            let mask: NSEvent.EventTypeMask = [.scrollWheel, .leftMouseDown, .leftMouseDragged, .leftMouseUp]
+            let mask: NSEvent.EventTypeMask = [
+                .scrollWheel, .leftMouseDown, .leftMouseDragged, .leftMouseUp,
+                .rightMouseDown, .rightMouseDragged, .rightMouseUp,
+                .magnify, .smartMagnify, .swipe
+            ]
             globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] event in
                 MainActor.assumeIsolated { self?.handle(event) }
             }
@@ -123,8 +141,12 @@ final class TrackpadInteractionEnhancer {
         localMonitor = nil
         scrollGate.reset()
         dragGate.reset()
+        zoomGate.reset()
         lastDragPoint = nil
+        dragDistance = 0
         lastFeedbackAt = -Double.infinity
+        lastSwipeAt = -Double.infinity
+        secondaryPressed = false
         clickClassifier.reset()
     }
 
@@ -135,10 +157,13 @@ final class TrackpadInteractionEnhancer {
             guard event.hasPreciseScrollingDeltas, event.momentumPhase.isEmpty else { return }
             let movement = abs(event.scrollingDeltaX) + abs(event.scrollingDeltaY)
             if scrollGate.feed(movement, at: time) {
-                tick(at: time, kind: .scrollGrain, location: NSEvent.mouseLocation)
+                let kind: TrackpadVisualKind = abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY)
+                    ? .horizontalGrain : .scrollGrain
+                tick(at: time, kind: kind, location: NSEvent.mouseLocation)
             }
         case .leftMouseDown:
             lastDragPoint = NSEvent.mouseLocation
+            dragDistance = 0
             dragGate.reset()
             if clickClassifier.mouseDown(clickCount: event.clickCount) { cancelClickRipple() }
         case .leftMouseDragged where dragEnabled:
@@ -147,17 +172,48 @@ final class TrackpadInteractionEnhancer {
             defer { lastDragPoint = point }
             guard let previous = lastDragPoint else { return }
             let movement = hypot(point.x - previous.x, point.y - previous.y)
+            if movement.isFinite { dragDistance = min(8, dragDistance + movement) }
             if dragGate.feed(movement, at: time) {
                 tick(at: time, kind: .dragTick, location: point)
             }
         case .leftMouseDragged:
             clickClassifier.mouseDragged()
         case .leftMouseUp:
+            if dragEnabled && dragDistance >= 8 {
+                tick(at: time, kind: .dragTick, location: NSEvent.mouseLocation)
+            }
             lastDragPoint = nil
+            dragDistance = 0
             dragGate.reset()
             if let ripple = clickClassifier.mouseUp(clickCount: event.clickCount), clickEnabled {
                 playClickRipple(ripple, at: NSEvent.mouseLocation)
             }
+        case .rightMouseDown where secondaryClickEnabled:
+            secondaryPressed = true
+        case .rightMouseDragged:
+            secondaryPressed = false
+        case .rightMouseUp:
+            let wasPressed = secondaryPressed
+            secondaryPressed = false
+            guard secondaryClickEnabled, wasPressed else { return }
+            playDelayedTick(kind: .secondaryClick, at: NSEvent.mouseLocation)
+        case .magnify where gesturesEnabled:
+            if event.phase.contains(.began) { zoomGate.reset() }
+            if zoomGate.feed(abs(event.magnification), at: time) {
+                tick(at: time, kind: .zoom(outward: event.magnification > 0), location: NSEvent.mouseLocation)
+            }
+            if event.phase.contains(.ended) || event.phase.contains(.cancelled) { zoomGate.reset() }
+        case .smartMagnify where gesturesEnabled:
+            tick(at: time, kind: .smartZoom, location: NSEvent.mouseLocation)
+        case .swipe where gesturesEnabled:
+            guard time - lastSwipeAt >= 0.5 else { return }
+            lastSwipeAt = time
+            let horizontal = abs(event.deltaX) >= abs(event.deltaY)
+            tick(
+                at: time,
+                kind: .swipe(horizontal: horizontal, positive: horizontal ? event.deltaX > 0 : event.deltaY > 0),
+                location: NSEvent.mouseLocation
+            )
         default:
             break
         }
@@ -184,10 +240,19 @@ final class TrackpadInteractionEnhancer {
         clickTask = nil
     }
 
+    private func playDelayedTick(kind: TrackpadVisualKind, at location: NSPoint) {
+        cancelClickRipple()
+        clickTask = Task {
+            do { try await Task.sleep(for: .milliseconds(90)) }
+            catch { return }
+            tick(at: ProcessInfo.processInfo.systemUptime, kind: kind, location: location)
+        }
+    }
+
     private func tick(at time: TimeInterval, kind: TrackpadVisualKind, location: NSPoint) {
         guard time - lastFeedbackAt >= 0.10 else { return }
+        guard output.tick() else { return }
         lastFeedbackAt = time
-        output.tick()
         onTick?(TrackpadFeedbackEvent(kind: kind, location: location))
     }
 }

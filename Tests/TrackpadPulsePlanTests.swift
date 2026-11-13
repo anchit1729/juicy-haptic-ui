@@ -24,4 +24,11 @@ final class TrackpadPulsePlanTests: XCTestCase {
         XCTAssertEqual(plan.count, 4)
         XCTAssertEqual(plan.interval, .milliseconds(180))
     }
+
+    func testInteractionAndMessageTapsShareOneRateLimit() {
+        var gate = TrackpadTapGate(minimumInterval: 0.10)
+        XCTAssertTrue(gate.allow(at: 10))
+        XCTAssertFalse(gate.allow(at: 10.05))
+        XCTAssertTrue(gate.allow(at: 10.11))
+    }
 }

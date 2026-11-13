@@ -31,32 +31,42 @@ xcodebuild -project AmbientHaptics.xcodeproj -scheme AmbientHaptics \
 1. Run the app and select **Open Editor** from its menu bar item.
 2. Choose **Trackpad preview** under **Output**.
 3. Select **Resume**.
-4. Turn on **Sandy scrolling**, **Drag ticks**, or **Splash clicks**.
+4. Turn on the interaction effects you want. These include scrolling, drag ticks, clicks, secondary clicks, and gestures.
 5. Turn on **Cursor accents** to show matching visuals beside the pointer.
 6. Scroll or drag in another app while you touch the Force Touch trackpad.
 7. Adjust **Grain spacing** to change the distance between scroll taps.
-8. Select **Pause All** from the menu bar to stop the effects.
+8. Turn on **App message cues** to use Outlook mail or Slack direct messages in trackpad mode.
+9. Connect each app below the cue controls, then choose its tap pattern.
+10. Select **Pause All** from the menu bar to stop the effects.
 
 The app starts paused. All interaction effects start off on a fresh install.
 It remembers your effect choices between launches.
-It observes only precise scroll movement, pointer drags, and click counts.
-It ignores inertial scrolling and requests at most ten texture taps per second.
+It observes precise scroll movement, pointer drags, clicks, and supported gesture events.
+It ignores inertial scrolling and requests at most ten added trackpad taps per second across effects and message cues.
+The pinch cue uses a tap after roughly 12 per cent magnification. The app limits swipe cues to one every half second.
+Gesture delivery depends on the target app and macOS. System-reserved gestures may not reach this app.
 Splash clicks add two taps after a single click and three after a double click.
-Cursor accents add warm grains for scroll taps, blue marks for drag ticks, and rings for click taps.
+Cursor accents add black grains for scroll taps, black marks for drag ticks, and black rings for click taps.
+Horizontal scrolls orient the grains sideways. Secondary clicks show a square. Zooms show nested rings. Swipes show an arrow.
+Drag releases add a final tick when the motion is large enough and the tap limit allows it.
 The app draws them in a transparent window that lets pointer input pass through.
 They appear only when the app requests a tap, and they stop when you pause haptics.
 macOS Reduce Motion hides these accents.
 The app cancels a single-click tail when it sees the second click.
 Drag movements do not start a click splash.
 It does not read keyboard input, screen content, or text from other apps.
-The **Tap requests** counter shows whether the app receives motion events.
+The **Tap requests** counter shows when the app requests an added trackpad tap.
 It cannot confirm that you felt a tap.
 
 The public event monitor can observe pointer movement from another input device too.
 AppKit does not identify a built-in trackpad through these motion events.
 Trackpad feel also depends on the current input device and system haptic settings.
 
-## External audio mode
+App message cues start off. Each app has its own source switch and cue pattern.
+The app uses the existing Outlook and Slack connections and shows an initial beside the cursor for each cue tap.
+New source adapters can use the same `SourceEvent` and cue mapping path.
+The app does not read other apps' notifications from macOS Notification Centre.
+Apple's public notification API returns [only this app's delivered notifications](https://developer.apple.com/documentation/usernotifications/unusernotificationcenter/getdeliverednotifications%28completionhandler:%29).
 
 ### Manual trackpad preview
 
@@ -67,7 +77,9 @@ Trackpad feel also depends on the current input device and system haptic setting
 
 Trackpad playback depends on the current input device and system haptic settings.
 The app cannot set its vibration frequency or intensity through AppKit.
-It does not send automatic weather or message feedback to the trackpad.
+It does not send automatic weather feedback to the trackpad.
+
+## External audio mode
 
 ### Drake output
 
@@ -153,7 +165,7 @@ This draft uses in-process adapters. It does not load third-party code at runtim
 
 - Xcode builds the app and runs the unit tests on macOS.
 - Tests cover device listing, synthesis bounds, saved patterns, source mappings, weather conversion, message decoding, cue grouping, and saved source settings.
-- Tests also check trackpad tap count, timing limits, and overlay pointer pass-through.
+- Tests also check trackpad tap count, timing limits, overlay pointer pass-through, and source cue selection.
 - The app starts as a menu bar process.
 - The physical Drake output, live weather request, Outlook account, and Slack workspace still need checks on your setup.
 - The first draft supports one Outlook account and Slack direct messages. It does not store message text.

@@ -38,15 +38,27 @@ private struct MenuContentView: View {
                 get: { model.splashClicksEnabled },
                 set: { model.setSplashClicksEnabled($0) }
             ))
+            Toggle("Secondary click", isOn: Binding(
+                get: { model.secondaryClicksEnabled },
+                set: { model.setSecondaryClicksEnabled($0) }
+            ))
+            Toggle("Pinch and swipe gestures", isOn: Binding(
+                get: { model.gesturesEnabled },
+                set: { model.setGesturesEnabled($0) }
+            ))
             Toggle("Cursor accents", isOn: Binding(
                 get: { model.cursorEffectsEnabled },
                 set: { model.setCursorEffectsEnabled($0) }
+            ))
+            Toggle("App message cues", isOn: Binding(
+                get: { model.appCuesEnabled },
+                set: { model.setAppCuesEnabled($0) }
             ))
         }
         Button("Stop All") { model.stop() }
         Divider()
         Text(model.status)
-        if model.outputMode == .audio {
+        if model.outputMode == .audio || model.appCuesEnabled {
             Text(model.weatherStatus)
             Text(model.outlookStatus)
             Text(model.slackStatus)

@@ -27,6 +27,7 @@
 		76C893EC8DE5FFB739F636D0 /* SourceMapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77B8D79F02EFD79371924D57 /* SourceMapping.swift */; };
 		809586660B457F8184E71515 /* PatternStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CA1A3992005E5AD30675A8C /* PatternStore.swift */; };
 		8904F8223F9395DC8F5E97C4 /* Step3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB41FA5CE9AE4B2AB9F2D668 /* Step3Tests.swift */; };
+		8B5ACD32DCA53CAD3D9B55B8 /* TrackpadMessageCuesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 712F30A56B62673810814F1A /* TrackpadMessageCuesView.swift */; };
 		92A2659489CD1D15FB0B2390 /* SourceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB7DA931CB5C65BE1D6C6F35 /* SourceSettingsView.swift */; };
 		A35C03DA69A75A1AA51DD0F8 /* AmbientHapticsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE835416F69F4BAA78AF435D /* AmbientHapticsApp.swift */; };
 		B549BAB6A86FB380EB0F2091 /* TrackpadHapticOutput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6344B85D3738120060807FE3 /* TrackpadHapticOutput.swift */; };
@@ -37,6 +38,7 @@
 		E3828EB9A14CD1BA5336AD89 /* AudioDeviceWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDE6759EBD93D6145E962476 /* AudioDeviceWatcher.swift */; };
 		EA7A1098FF1CF5A5397DF910 /* EventGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CE7FF31F456A15A82AEE008 /* EventGate.swift */; };
 		F146FA65D16F62BA05D6E9FC /* Step4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3E9BCE79A89F0DAC1829D67 /* Step4Tests.swift */; };
+		F18A9955C671B7A1C9AFA83C /* SourceCueResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8636B2260C4E294DA06021D8 /* SourceCueResolverTests.swift */; };
 		F232776AB8F22925EE414C7F /* TrackpadInteractionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D6CA43A3541A9D6B93D48F /* TrackpadInteractionTests.swift */; };
 		FAC76F63B13E86989BA4F93E /* Step5Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3AD4A9504086006CFEC433 /* Step5Tests.swift */; };
 /* End PBXBuildFile section */
@@ -65,8 +67,10 @@
 		6344B85D3738120060807FE3 /* TrackpadHapticOutput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackpadHapticOutput.swift; sourceTree = "<group>"; };
 		693AE805703562EC9540C7AA /* PatternEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PatternEditorView.swift; sourceTree = "<group>"; };
 		6D297759745C3C599CA506B9 /* SourceSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceSettingsStore.swift; sourceTree = "<group>"; };
+		712F30A56B62673810814F1A /* TrackpadMessageCuesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackpadMessageCuesView.swift; sourceTree = "<group>"; };
 		77B8D79F02EFD79371924D57 /* SourceMapping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceMapping.swift; sourceTree = "<group>"; };
 		7A9A27A284CCB5C63B40EC10 /* Step2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Step2Tests.swift; sourceTree = "<group>"; };
+		8636B2260C4E294DA06021D8 /* SourceCueResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceCueResolverTests.swift; sourceTree = "<group>"; };
 		90732970D9D7BF847595B553 /* Step1Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Step1Tests.swift; sourceTree = "<group>"; };
 		98517F234414DAA9581B26EC /* TrackpadEnhancementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackpadEnhancementsView.swift; sourceTree = "<group>"; };
 		A287E0485F41A99F81A1A695 /* KeychainSecrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainSecrets.swift; sourceTree = "<group>"; };
@@ -143,6 +147,7 @@
 				693AE805703562EC9540C7AA /* PatternEditorView.swift */,
 				AB7DA931CB5C65BE1D6C6F35 /* SourceSettingsView.swift */,
 				98517F234414DAA9581B26EC /* TrackpadEnhancementsView.swift */,
+				712F30A56B62673810814F1A /* TrackpadMessageCuesView.swift */,
 				E56AA070E85568C08D3EEC10 /* WeatherControlsView.swift */,
 			);
 			path = App;
@@ -153,6 +158,7 @@
 			children = (
 				BC73C6810A29DFC66097A5F6 /* ClickRippleTests.swift */,
 				1C5D23D56F76C7A0B134FFB6 /* CursorEffectOverlayTests.swift */,
+				8636B2260C4E294DA06021D8 /* SourceCueResolverTests.swift */,
 				90732970D9D7BF847595B553 /* Step1Tests.swift */,
 				7A9A27A284CCB5C63B40EC10 /* Step2Tests.swift */,
 				BB41FA5CE9AE4B2AB9F2D668 /* Step3Tests.swift */,
@@ -281,6 +287,7 @@
 				6B61DF56D14AA4D331A12BE6 /* TrackpadEnhancementsView.swift in Sources */,
 				B549BAB6A86FB380EB0F2091 /* TrackpadHapticOutput.swift in Sources */,
 				DB4ABA921F2A4E58E7896B93 /* TrackpadInteractionEnhancer.swift in Sources */,
+				8B5ACD32DCA53CAD3D9B55B8 /* TrackpadMessageCuesView.swift in Sources */,
 				05828198E6E0F095D9B67EE9 /* WeatherControlsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -291,6 +298,7 @@
 			files = (
 				6046EED1D3A96EF90B5C81FE /* ClickRippleTests.swift in Sources */,
 				05B3D5F2EFE2A5A1713137FC /* CursorEffectOverlayTests.swift in Sources */,
+				F18A9955C671B7A1C9AFA83C /* SourceCueResolverTests.swift in Sources */,
 				585CBE29936921953CA3BC04 /* Step1Tests.swift in Sources */,
 				CACF91AF70422C721E890673 /* Step2Tests.swift in Sources */,
 				8904F8223F9395DC8F5E97C4 /* Step3Tests.swift in Sources */,
