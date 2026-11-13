@@ -6,11 +6,11 @@ struct AmbientHapticsApp: App {
     @StateObject private var model = AppModel()
 
     var body: some Scene {
-        MenuBarExtra("Ambient Haptics", systemImage: "waveform.path") {
+        MenuBarExtra("Juicy Haptic UI", systemImage: "waveform.path") {
             MenuContentView(model: model)
         }
 
-        Window("Ambient Haptics", id: "editor") {
+        Window("Juicy Haptic UI", id: "editor") {
             PatternEditorView(model: model)
         }
         .defaultSize(width: 800, height: 720)

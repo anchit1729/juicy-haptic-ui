@@ -7,7 +7,7 @@ struct PatternEditorView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                Text("Ambient Haptics").font(.largeTitle.bold())
+                Text("Juicy Haptic UI").font(.largeTitle.bold())
                 outputControls
                 Divider()
                 if model.outputMode == .trackpad {
