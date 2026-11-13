@@ -20,6 +20,48 @@ struct DistanceTickGate {
     mutating func reset() { distance = 0 }
 }
 
+enum ClickRipple: Equatable {
+    case single
+    case double
+
+    /// Each wait follows the preceding tap. The built-in click provides the first impact.
+    var waits: [Duration] {
+        switch self {
+        case .single: [.milliseconds(90), .milliseconds(140)]
+        case .double: [.milliseconds(90), .milliseconds(120), .milliseconds(160)]
+        }
+    }
+}
+
+/// Distinguishes a click from a drag and recognises AppKit's double-click count.
+struct ClickRippleClassifier {
+    private var sawDown = false
+    private var dragged = false
+
+    mutating func mouseDown(clickCount: Int) -> Bool {
+        sawDown = true
+        dragged = false
+        return clickCount >= 2
+    }
+
+    mutating func mouseDragged() { dragged = true }
+
+    mutating func mouseUp(clickCount: Int) -> ClickRipple? {
+        defer { sawDown = false }
+        guard sawDown, !dragged else { return nil }
+        switch clickCount {
+        case 1: return .single
+        case 2: return .double
+        default: return nil
+        }
+    }
+
+    mutating func reset() {
+        sawDown = false
+        dragged = false
+    }
+}
+
 /// Reads only scroll and drag motion. It never changes or stores the input events.
 @MainActor
 final class TrackpadInteractionEnhancer {
@@ -34,16 +76,21 @@ final class TrackpadInteractionEnhancer {
     private var lastFeedbackAt = -Double.infinity
     private var scrollEnabled = false
     private var dragEnabled = false
+    private var clickEnabled = false
+    private var clickClassifier = ClickRippleClassifier()
+    private var clickTask: Task<Void, Never>?
 
     init(output: TrackpadHapticOutput) { self.output = output }
 
     /// Returns false when macOS declines the systemwide monitor.
     @discardableResult
-    func configure(scroll: Bool, drag: Bool, grainSpacing: Double) -> Bool {
+    func configure(scroll: Bool, drag: Bool, clicks: Bool, grainSpacing: Double) -> Bool {
         scrollEnabled = scroll
         dragEnabled = drag
+        clickEnabled = clicks
         scrollGate.spacing = min(40, max(8, grainSpacing))
-        guard scroll || drag else { stop(); return true }
+        if !clicks { cancelClickRipple() }
+        guard scroll || drag || clicks else { stop(); return true }
         if globalMonitor == nil && localMonitor == nil {
             let mask: NSEvent.EventTypeMask = [.scrollWheel, .leftMouseDown, .leftMouseDragged, .leftMouseUp]
             globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] event in
@@ -58,6 +105,7 @@ final class TrackpadInteractionEnhancer {
     }
 
     func stop() {
+        cancelClickRipple()
         if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
         if let localMonitor { NSEvent.removeMonitor(localMonitor) }
         globalMonitor = nil
@@ -66,6 +114,7 @@ final class TrackpadInteractionEnhancer {
         dragGate.reset()
         lastDragPoint = nil
         lastFeedbackAt = -Double.infinity
+        clickClassifier.reset()
     }
 
     private func handle(_ event: NSEvent) {
@@ -78,18 +127,42 @@ final class TrackpadInteractionEnhancer {
         case .leftMouseDown:
             lastDragPoint = NSEvent.mouseLocation
             dragGate.reset()
+            if clickClassifier.mouseDown(clickCount: event.clickCount) { cancelClickRipple() }
         case .leftMouseDragged where dragEnabled:
+            clickClassifier.mouseDragged()
             let point = NSEvent.mouseLocation
             defer { lastDragPoint = point }
             guard let previous = lastDragPoint else { return }
             let movement = hypot(point.x - previous.x, point.y - previous.y)
             if dragGate.feed(movement, at: time) { tick(at: time) }
+        case .leftMouseDragged:
+            clickClassifier.mouseDragged()
         case .leftMouseUp:
             lastDragPoint = nil
             dragGate.reset()
+            if let ripple = clickClassifier.mouseUp(clickCount: event.clickCount), clickEnabled {
+                playClickRipple(ripple)
+            }
         default:
             break
         }
+    }
+
+    private func playClickRipple(_ ripple: ClickRipple) {
+        cancelClickRipple()
+        clickTask = Task {
+            for wait in ripple.waits {
+                do { try await Task.sleep(for: wait) }
+                catch { return }
+                guard !Task.isCancelled else { return }
+                tick(at: ProcessInfo.processInfo.systemUptime)
+            }
+        }
+    }
+
+    private func cancelClickRipple() {
+        clickTask?.cancel()
+        clickTask = nil
     }
 
     private func tick(at time: TimeInterval) {

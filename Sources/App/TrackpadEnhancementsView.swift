@@ -25,9 +25,15 @@ struct TrackpadEnhancementsView: View {
                 get: { model.dragTicksEnabled },
                 set: { model.setDragTicksEnabled($0) }
             ))
-            Text("Adds a tap after each short drag distance. The app limits all texture taps to ten per second.")
+            Text("Adds a tap after each short drag distance. The app limits added taps to ten per second.")
                 .font(.caption).foregroundStyle(.secondary)
-            Text("The app reads only scroll and drag movement. It does not read keys or screen content.")
+            Toggle("Splash clicks", isOn: Binding(
+                get: { model.splashClicksEnabled },
+                set: { model.setSplashClicksEnabled($0) }
+            ))
+            Text("A single click gets two trailing ripples. A double click gets three wider ripples. Dragging never starts a click splash.")
+                .font(.caption).foregroundStyle(.secondary)
+            Text("The app reads only scroll, drag, and click events. It does not read keys or screen content.")
                 .font(.caption).foregroundStyle(.secondary)
             Text("Tap requests: \(model.trackpadTickRequests)")
                 .font(.caption).monospacedDigit()

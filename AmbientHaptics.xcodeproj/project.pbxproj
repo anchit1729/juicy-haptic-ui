@@ -19,6 +19,7 @@
 		54FA4894DE3983A8CF09BC42 /* HapticPattern.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C18A6F6654BBBD7ED1F2073 /* HapticPattern.swift */; };
 		585CBE29936921953CA3BC04 /* Step1Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90732970D9D7BF847595B553 /* Step1Tests.swift */; };
 		59B9DB27A3E6048377A07B53 /* SlackSocketSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B2E3C7A5DB400AFB418DF54 /* SlackSocketSource.swift */; };
+		6046EED1D3A96EF90B5C81FE /* ClickRippleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC73C6810A29DFC66097A5F6 /* ClickRippleTests.swift */; };
 		6B61DF56D14AA4D331A12BE6 /* TrackpadEnhancementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98517F234414DAA9581B26EC /* TrackpadEnhancementsView.swift */; };
 		6FA1DC491BF687AE56B240EE /* ConnectionSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B6B3E8D8DD290AB4EF96BD2 /* ConnectionSettingsView.swift */; };
 		76C893EC8DE5FFB739F636D0 /* SourceMapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77B8D79F02EFD79371924D57 /* SourceMapping.swift */; };
@@ -71,6 +72,7 @@
 		B5DD8638286CCAC778713D02 /* AmbientHaptics.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AmbientHaptics.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA4E159E571ED71CD152EE21 /* PatternSynthesizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PatternSynthesizer.swift; sourceTree = "<group>"; };
 		BB41FA5CE9AE4B2AB9F2D668 /* Step3Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Step3Tests.swift; sourceTree = "<group>"; };
+		BC73C6810A29DFC66097A5F6 /* ClickRippleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClickRippleTests.swift; sourceTree = "<group>"; };
 		C358025C6380BF7AF5890912 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		D264A14DB935A625EE51CBB1 /* TrackpadPulsePlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackpadPulsePlanTests.swift; sourceTree = "<group>"; };
 		D89DB18404CDD4B692AFC4D2 /* HapticAudioOutput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticAudioOutput.swift; sourceTree = "<group>"; };
@@ -144,6 +146,7 @@
 		B48AD7D02670C486C133C751 /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				BC73C6810A29DFC66097A5F6 /* ClickRippleTests.swift */,
 				90732970D9D7BF847595B553 /* Step1Tests.swift */,
 				7A9A27A284CCB5C63B40EC10 /* Step2Tests.swift */,
 				BB41FA5CE9AE4B2AB9F2D668 /* Step3Tests.swift */,
@@ -279,6 +282,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6046EED1D3A96EF90B5C81FE /* ClickRippleTests.swift in Sources */,
 				585CBE29936921953CA3BC04 /* Step1Tests.swift in Sources */,
 				CACF91AF70422C721E890673 /* Step2Tests.swift in Sources */,
 				8904F8223F9395DC8F5E97C4 /* Step3Tests.swift in Sources */,

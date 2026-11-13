@@ -17,6 +17,7 @@ final class AppModel: ObservableObject {
     @Published var outputMode: HapticOutputMode = .trackpad
     @Published var sandyScrollingEnabled = false
     @Published var dragTicksEnabled = false
+    @Published var splashClicksEnabled = false
     @Published var grainSpacing = 18.0
     @Published private(set) var trackpadTickRequests = 0
     @Published var isPaused = true
@@ -74,6 +75,7 @@ final class AppModel: ObservableObject {
         outputMode = HapticOutputMode(rawValue: UserDefaults.standard.string(forKey: "output.mode") ?? "") ?? .trackpad
         sandyScrollingEnabled = UserDefaults.standard.bool(forKey: "trackpad.sandyScrolling")
         dragTicksEnabled = UserDefaults.standard.bool(forKey: "trackpad.dragTicks")
+        splashClicksEnabled = UserDefaults.standard.bool(forKey: "trackpad.splashClicks")
         if UserDefaults.standard.object(forKey: "trackpad.grainSpacing") != nil {
             grainSpacing = UserDefaults.standard.double(forKey: "trackpad.grainSpacing")
         }
@@ -173,7 +175,7 @@ final class AppModel: ObservableObject {
         outputMode = mode
         UserDefaults.standard.set(mode.rawValue, forKey: "output.mode")
         status = mode == .trackpad
-            ? "Trackpad mode selected. Resume to use enabled scroll and drag effects."
+            ? "Trackpad mode selected. Resume to use enabled interaction effects."
             : "Select the audio output connected to the N22."
         if mode == .audio { resumeInformationSources() }
         syncTrackpadEnhancements()
@@ -215,6 +217,12 @@ final class AppModel: ObservableObject {
         syncTrackpadEnhancements()
     }
 
+    func setSplashClicksEnabled(_ enabled: Bool) {
+        splashClicksEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: "trackpad.splashClicks")
+        syncTrackpadEnhancements()
+    }
+
     func setGrainSpacing(_ spacing: Double) {
         grainSpacing = min(40, max(8, spacing))
         UserDefaults.standard.set(grainSpacing, forKey: "trackpad.grainSpacing")
@@ -229,12 +237,13 @@ final class AppModel: ObservableObject {
         let monitoringAvailable = trackpadEnhancer.configure(
             scroll: sandyScrollingEnabled,
             drag: dragTicksEnabled,
+            clicks: splashClicksEnabled,
             grainSpacing: grainSpacing
         )
         if !monitoringAvailable {
             status = "macOS did not allow systemwide motion monitoring. Local app ticks may still work."
-        } else if sandyScrollingEnabled || dragTicksEnabled {
-            status = "Trackpad scroll and drag effects are active."
+        } else if sandyScrollingEnabled || dragTicksEnabled || splashClicksEnabled {
+            status = "Trackpad interaction effects are active."
         } else {
             status = "Trackpad ready for manual previews."
         }

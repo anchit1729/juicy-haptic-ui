@@ -34,6 +34,10 @@ private struct MenuContentView: View {
                 get: { model.dragTicksEnabled },
                 set: { model.setDragTicksEnabled($0) }
             ))
+            Toggle("Splash clicks", isOn: Binding(
+                get: { model.splashClicksEnabled },
+                set: { model.setSplashClicksEnabled($0) }
+            ))
         }
         Button("Stop All") { model.stop() }
         Divider()
