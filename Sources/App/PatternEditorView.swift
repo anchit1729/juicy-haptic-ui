@@ -11,25 +11,27 @@ struct PatternEditorView: View {
                 outputControls
                 Divider()
                 if model.outputMode == .trackpad {
-                    Text("Trackpad previews use brief taps after you press Play or Test. Frequency bands, strength, and automatic scenes need external audio.")
-                        .font(.callout).foregroundStyle(.secondary)
+                    TrackpadEnhancementsView(model: model)
+                } else {
+                    patternControls
+                    FrequencyBandChart(pattern: $model.draftPattern)
+                        .frame(height: 220)
+                    bandControls
+                    rhythmControls
+                    Divider()
+                    WeatherControlsView(model: model)
+                    Divider()
+                    SourceSettingsView(model: model)
+                    Divider()
+                    ConnectionSettingsView(model: model)
                 }
-                patternControls
-                FrequencyBandChart(pattern: $model.draftPattern)
-                    .frame(height: 220)
-                bandControls
-                rhythmControls
-                Divider()
-                WeatherControlsView(model: model)
-                Divider()
-                SourceSettingsView(model: model)
-                Divider()
-                ConnectionSettingsView(model: model)
                 HStack {
-                    Button("Play") { model.playPreview() }
-                        .disabled(!model.outputReady)
                     Button("Stop") { model.stop() }
-                    Button("Save Pattern") { model.savePattern() }
+                    if model.outputMode == .audio {
+                        Button("Play") { model.playPreview() }
+                            .disabled(!model.outputReady)
+                        Button("Save Pattern") { model.savePattern() }
+                    }
                     Spacer()
                     Text(model.status).foregroundStyle(.secondary)
                 }

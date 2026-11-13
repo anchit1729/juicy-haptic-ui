@@ -15,6 +15,10 @@ final class AppModel: ObservableObject {
     @Published var selectedDeviceID: AudioDeviceID = 0
     @Published var status = "Trackpad previews use brief taps. Resume haptics to test one."
     @Published var outputMode: HapticOutputMode = .trackpad
+    @Published var sandyScrollingEnabled = false
+    @Published var dragTicksEnabled = false
+    @Published var grainSpacing = 18.0
+    @Published private(set) var trackpadTickRequests = 0
     @Published var isPaused = true
     @Published var patterns = StarterPatterns.all
     @Published var selectedPatternID = StarterPatterns.all[0].id
@@ -43,6 +47,7 @@ final class AppModel: ObservableObject {
 
     private let audio = HapticAudioOutput()
     private let trackpad = TrackpadHapticOutput()
+    private lazy var trackpadEnhancer = TrackpadInteractionEnhancer(output: trackpad)
     private let store = PatternStore()
     private let sourceStore = SourceSettingsStore()
     private let weatherSource: any WeatherProviding = OpenMeteoWeatherSource()
@@ -67,6 +72,12 @@ final class AppModel: ObservableObject {
 
     init() {
         outputMode = HapticOutputMode(rawValue: UserDefaults.standard.string(forKey: "output.mode") ?? "") ?? .trackpad
+        sandyScrollingEnabled = UserDefaults.standard.bool(forKey: "trackpad.sandyScrolling")
+        dragTicksEnabled = UserDefaults.standard.bool(forKey: "trackpad.dragTicks")
+        if UserDefaults.standard.object(forKey: "trackpad.grainSpacing") != nil {
+            grainSpacing = UserDefaults.standard.double(forKey: "trackpad.grainSpacing")
+        }
+        trackpadEnhancer.onTick = { [weak self] in self?.trackpadTickRequests += 1 }
         preferredDeviceUID = UserDefaults.standard.string(forKey: "audio.deviceUID") ?? ""
         outputStrength = UserDefaults.standard.object(forKey: "audio.strength") == nil
             ? 0.25 : UserDefaults.standard.double(forKey: "audio.strength")
@@ -104,13 +115,7 @@ final class AppModel: ObservableObject {
         microsoftClientID = UserDefaults.standard.string(forKey: "outlook.clientID") ?? ""
         slackAppToken = KeychainSecrets.load("slack.appToken") ?? ""
         slackAllowedTeams = UserDefaults.standard.string(forKey: "slack.allowedTeams") ?? ""
-        if weatherDataEnabled { startWeatherUpdates() }
-        if !microsoftClientID.isEmpty && KeychainSecrets.load("outlook.refreshToken") != nil {
-            startOutlookPolling()
-        }
-        if !slackAppToken.isEmpty {
-            connectSlack()
-        }
+        if outputMode == .audio { resumeInformationSources() }
         meterTask = Task { [weak self] in
             while !Task.isCancelled {
                 self?.outputLevel = self?.audio.currentOutputLevel ?? 0
@@ -162,12 +167,77 @@ final class AppModel: ObservableObject {
     func selectOutputMode(_ mode: HapticOutputMode) {
         audio.stop()
         trackpad.stop()
+        trackpadEnhancer.stop()
+        if mode == .trackpad { suspendInformationSources() }
         ambientPlaybackEnabled = false
         outputMode = mode
         UserDefaults.standard.set(mode.rawValue, forKey: "output.mode")
         status = mode == .trackpad
-            ? "Trackpad previews use brief taps. Automatic scenes need external audio."
+            ? "Trackpad mode selected. Resume to use enabled scroll and drag effects."
             : "Select the audio output connected to the N22."
+        if mode == .audio { resumeInformationSources() }
+        syncTrackpadEnhancements()
+    }
+
+    private func resumeInformationSources() {
+        if weatherDataEnabled { startWeatherUpdates() }
+        if !microsoftClientID.isEmpty && KeychainSecrets.load("outlook.refreshToken") != nil {
+            startOutlookPolling()
+        }
+        if !slackAppToken.isEmpty { connectSlack() }
+    }
+
+    private func suspendInformationSources() {
+        weatherTask?.cancel()
+        weatherTask = nil
+        outlookTask?.cancel()
+        outlookTask = nil
+        outlookAuthTask?.cancel()
+        outlookAuthTask = nil
+        slackTask?.cancel()
+        slackTask = nil
+        slackSocket?.cancel(with: .goingAway, reason: nil)
+        slackSocket = nil
+        sourceSnapshots.removeAll()
+        weatherSnapshot = nil
+        outlookTracker = OutlookInboxTracker()
+    }
+
+    func setSandyScrollingEnabled(_ enabled: Bool) {
+        sandyScrollingEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: "trackpad.sandyScrolling")
+        syncTrackpadEnhancements()
+    }
+
+    func setDragTicksEnabled(_ enabled: Bool) {
+        dragTicksEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: "trackpad.dragTicks")
+        syncTrackpadEnhancements()
+    }
+
+    func setGrainSpacing(_ spacing: Double) {
+        grainSpacing = min(40, max(8, spacing))
+        UserDefaults.standard.set(grainSpacing, forKey: "trackpad.grainSpacing")
+        syncTrackpadEnhancements()
+    }
+
+    private func syncTrackpadEnhancements() {
+        guard outputMode == .trackpad, !isPaused else {
+            trackpadEnhancer.stop()
+            return
+        }
+        let monitoringAvailable = trackpadEnhancer.configure(
+            scroll: sandyScrollingEnabled,
+            drag: dragTicksEnabled,
+            grainSpacing: grainSpacing
+        )
+        if !monitoringAvailable {
+            status = "macOS did not allow systemwide motion monitoring. Local app ticks may still work."
+        } else if sandyScrollingEnabled || dragTicksEnabled {
+            status = "Trackpad scroll and drag effects are active."
+        } else {
+            status = "Trackpad ready for manual previews."
+        }
     }
 
     func playTestPulse() {
@@ -189,6 +259,7 @@ final class AppModel: ObservableObject {
     func stop() {
         audio.stop()
         trackpad.stop()
+        trackpadEnhancer.stop()
         ambientPlaybackEnabled = false
         isPaused = true
         status = "Stopped."
@@ -199,9 +270,11 @@ final class AppModel: ObservableObject {
         if isPaused {
             audio.stop()
             trackpad.stop()
+            trackpadEnhancer.stop()
             status = "All haptics paused."
         } else {
             status = "Haptics ready."
+            syncTrackpadEnhancements()
             if ambientPlaybackEnabled { renderAllScenes() }
         }
     }
@@ -352,9 +425,11 @@ final class AppModel: ObservableObject {
         UserDefaults.standard.set(enabled, forKey: "weather.openMeteoEnabled")
         weatherTask?.cancel()
         weatherTask = nil
-        if enabled {
+        if enabled && outputMode == .audio {
             weatherStatus = "Fetching weather from Open-Meteo."
             startWeatherUpdates()
+        } else if enabled {
+            weatherStatus = "Weather waits for external audio mode."
         } else {
             weatherSnapshot = nil
             sourceSnapshots.removeValue(forKey: "weather")
@@ -431,10 +506,11 @@ final class AppModel: ObservableObject {
                     return
                 }
                 let token = try await outlookSource.refresh(clientID: microsoftClientID, refreshToken: refresh)
+                guard outputMode == .audio, !Task.isCancelled else { return }
                 try saveOutlookToken(token)
             }
             let inbox = try await outlookSource.fetchInbox(accessToken: outlookAccessToken)
-            guard !Task.isCancelled else { return }
+            guard outputMode == .audio, !Task.isCancelled else { return }
             let now = Date()
             let events = outlookTracker.newEvents(from: inbox, at: now)
             outlookEventTimes.append(contentsOf: events.map(\.occurredAt))
@@ -447,7 +523,9 @@ final class AppModel: ObservableObject {
             for event in events { receive(event) }
             outlookStatus = "Outlook checked at \(now.formatted(date: .omitted, time: .shortened))."
         } catch {
-            outlookStatus = "Outlook check failed: \(error.localizedDescription)"
+            if outputMode == .audio && !Task.isCancelled {
+                outlookStatus = "Outlook check failed: \(error.localizedDescription)"
+            }
         }
     }
 
@@ -523,7 +601,9 @@ final class AppModel: ObservableObject {
                 slackStatus = "Slack message received at \(now.formatted(date: .omitted, time: .shortened))."
             }
         } catch {
-            slackStatus = "Slack connection failed: \(error.localizedDescription)"
+            if outputMode == .audio && !Task.isCancelled {
+                slackStatus = "Slack connection failed: \(error.localizedDescription)"
+            }
         }
     }
 
@@ -558,16 +638,16 @@ final class AppModel: ObservableObject {
     }
 
     func refreshWeather() async {
-        guard weatherDataEnabled, let location = savedWeatherLocation else { return }
+        guard outputMode == .audio, weatherDataEnabled, let location = savedWeatherLocation else { return }
         do {
             let snapshot = try await weatherSource.current(latitude: location.latitude, longitude: location.longitude)
-            guard weatherDataEnabled, !Task.isCancelled else { return }
+            guard outputMode == .audio, weatherDataEnabled, !Task.isCancelled else { return }
             weatherSnapshot = snapshot
             sourceSnapshots["weather"] = snapshot
             weatherStatus = "Weather updated."
             if ambientPlaybackEnabled { renderAllScenes() }
         } catch {
-            guard weatherDataEnabled, !Task.isCancelled else { return }
+            guard outputMode == .audio, weatherDataEnabled, !Task.isCancelled else { return }
             weatherStatus = "Weather unavailable: \(error.localizedDescription)"
             if let snapshot = weatherSnapshot, !snapshot.isFresh(for: 1800) {
                 weatherSnapshot = nil

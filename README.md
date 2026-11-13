@@ -1,12 +1,11 @@
 # Ambient Haptics
 
-A macOS menu bar app that makes ambient vibration patterns for a separate audio output.
-The first draft supports weather, Outlook mail, Slack direct messages, and a sample source.
-It keeps the Mac's normal audio output setting intact.
+A macOS menu bar app with optional trackpad feel enhancements.
+The current trackpad mode adds spaced taps while you scroll or drag.
+The earlier audio mode remains in the project for ambient weather and message patterns.
 
-The app also offers manual previews through a Force Touch trackpad.
-AppKit provides brief preset taps. Trackpad previews use pulse timing and count.
-Frequency bands, strength, automatic message cues, and ambient scenes use external audio.
+AppKit provides brief preset taps. It does not offer custom trackpad waveforms or intensity.
+The app uses tap spacing to suggest a sandy texture.
 
 ## Build and open
 
@@ -27,9 +26,31 @@ xcodebuild -project AmbientHaptics.xcodeproj -scheme AmbientHaptics \
   test CODE_SIGNING_ALLOWED=NO
 ```
 
-## First output test
+## Trackpad mode
 
-### Trackpad preview
+1. Run the app and select **Open Editor** from its menu bar item.
+2. Choose **Trackpad preview** under **Output**.
+3. Select **Resume**.
+4. Turn on **Sandy scrolling** or **Drag ticks**.
+5. Scroll or drag in another app while you touch the Force Touch trackpad.
+6. Adjust **Grain spacing** to change the distance between scroll taps.
+7. Select **Pause All** from the menu bar to stop the effects.
+
+The app starts paused. Both motion effects start off on a fresh install.
+It remembers your effect choices between launches.
+It observes only precise scroll movement and pointer drags.
+It ignores inertial scrolling and requests at most ten texture taps per second.
+It does not read keyboard input, screen content, or text from other apps.
+The **Tap requests** counter shows whether the app receives motion events.
+It cannot confirm that you felt a tap.
+
+The public event monitor can observe pointer movement from another input device too.
+AppKit does not identify a built-in trackpad through these motion events.
+Trackpad feel also depends on the current input device and system haptic settings.
+
+## External audio mode
+
+### Manual trackpad preview
 
 1. Choose **Trackpad preview** under **Output**.
 2. Select **Resume**, then select **Test**.
@@ -40,7 +61,7 @@ Trackpad playback depends on the current input device and system haptic settings
 The app cannot set its vibration frequency or intensity through AppKit.
 It does not send automatic weather or message feedback to the trackpad.
 
-### External audio
+### Drake output
 
 1. Connect the Drake LFi to the N22 and connect the N22 to a Mac audio output.
 2. Set the N22 volume low.
@@ -68,7 +89,7 @@ The **Source scenes** section assigns patterns to a source.
 Each ambient layer has its own strength, switch, and value mappings.
 Select **Sample source** to test a mapping without a network connection.
 
-## Connect sources
+## Connect sources for external audio
 
 ### Weather
 

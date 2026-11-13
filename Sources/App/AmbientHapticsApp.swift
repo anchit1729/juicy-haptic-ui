@@ -25,12 +25,24 @@ private struct MenuContentView: View {
         Button("Open Editor") { openWindow(id: "editor"); NSApp.activate() }
         Button("Test Pulse") { model.playTestPulse() }
         Button(model.isPaused ? "Resume Haptics" : "Pause All") { model.togglePause() }
-        Button("Stop Ambience") { model.stop() }
+        if model.outputMode == .trackpad {
+            Toggle("Sandy scrolling", isOn: Binding(
+                get: { model.sandyScrollingEnabled },
+                set: { model.setSandyScrollingEnabled($0) }
+            ))
+            Toggle("Drag ticks", isOn: Binding(
+                get: { model.dragTicksEnabled },
+                set: { model.setDragTicksEnabled($0) }
+            ))
+        }
+        Button("Stop All") { model.stop() }
         Divider()
         Text(model.status)
-        Text(model.weatherStatus)
-        Text(model.outlookStatus)
-        Text(model.slackStatus)
+        if model.outputMode == .audio {
+            Text(model.weatherStatus)
+            Text(model.outlookStatus)
+            Text(model.slackStatus)
+        }
         Button("Quit") { NSApp.terminate(nil) }
     }
 }

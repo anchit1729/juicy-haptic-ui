@@ -17,9 +17,13 @@ struct TrackpadPulsePlan {
 final class TrackpadHapticOutput {
     private var previewTask: Task<Void, Never>?
 
+    func tick() {
+        NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+    }
+
     func playTestPulse() {
         stop()
-        NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+        tick()
     }
 
     func playPreview(_ pattern: HapticPattern) {
@@ -28,7 +32,7 @@ final class TrackpadHapticOutput {
         previewTask = Task {
             for index in 0..<plan.count {
                 guard !Task.isCancelled else { return }
-                NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+                tick()
                 if index + 1 < plan.count {
                     try? await Task.sleep(for: plan.interval)
                 }
