@@ -32,15 +32,20 @@ xcodebuild -project AmbientHaptics.xcodeproj -scheme AmbientHaptics \
 2. Choose **Trackpad preview** under **Output**.
 3. Select **Resume**.
 4. Turn on **Sandy scrolling**, **Drag ticks**, or **Splash clicks**.
-5. Scroll or drag in another app while you touch the Force Touch trackpad.
-6. Adjust **Grain spacing** to change the distance between scroll taps.
-7. Select **Pause All** from the menu bar to stop the effects.
+5. Turn on **Cursor accents** to show matching visuals beside the pointer.
+6. Scroll or drag in another app while you touch the Force Touch trackpad.
+7. Adjust **Grain spacing** to change the distance between scroll taps.
+8. Select **Pause All** from the menu bar to stop the effects.
 
-The app starts paused. Both motion effects start off on a fresh install.
+The app starts paused. All interaction effects start off on a fresh install.
 It remembers your effect choices between launches.
 It observes only precise scroll movement, pointer drags, and click counts.
 It ignores inertial scrolling and requests at most ten texture taps per second.
 Splash clicks add two taps after a single click and three after a double click.
+Cursor accents add warm grains for scroll taps, blue marks for drag ticks, and rings for click taps.
+The app draws them in a transparent window that lets pointer input pass through.
+They appear only when the app requests a tap, and they stop when you pause haptics.
+macOS Reduce Motion hides these accents.
 The app cancels a single-click tail when it sees the second click.
 Drag movements do not start a click splash.
 It does not read keyboard input, screen content, or text from other apps.
@@ -148,7 +153,7 @@ This draft uses in-process adapters. It does not load third-party code at runtim
 
 - Xcode builds the app and runs the unit tests on macOS.
 - Tests cover device listing, synthesis bounds, saved patterns, source mappings, weather conversion, message decoding, cue grouping, and saved source settings.
-- Tests also check trackpad tap count and timing limits.
+- Tests also check trackpad tap count, timing limits, and overlay pointer pass-through.
 - The app starts as a menu bar process.
 - The physical Drake output, live weather request, Outlook account, and Slack workspace still need checks on your setup.
 - The first draft supports one Outlook account and Slack direct messages. It does not store message text.

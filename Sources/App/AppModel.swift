@@ -18,6 +18,7 @@ final class AppModel: ObservableObject {
     @Published var sandyScrollingEnabled = false
     @Published var dragTicksEnabled = false
     @Published var splashClicksEnabled = false
+    @Published var cursorEffectsEnabled = false
     @Published var grainSpacing = 18.0
     @Published private(set) var trackpadTickRequests = 0
     @Published var isPaused = true
@@ -49,6 +50,7 @@ final class AppModel: ObservableObject {
     private let audio = HapticAudioOutput()
     private let trackpad = TrackpadHapticOutput()
     private lazy var trackpadEnhancer = TrackpadInteractionEnhancer(output: trackpad)
+    private let cursorEffects = CursorEffectOverlay()
     private let store = PatternStore()
     private let sourceStore = SourceSettingsStore()
     private let weatherSource: any WeatherProviding = OpenMeteoWeatherSource()
@@ -76,10 +78,15 @@ final class AppModel: ObservableObject {
         sandyScrollingEnabled = UserDefaults.standard.bool(forKey: "trackpad.sandyScrolling")
         dragTicksEnabled = UserDefaults.standard.bool(forKey: "trackpad.dragTicks")
         splashClicksEnabled = UserDefaults.standard.bool(forKey: "trackpad.splashClicks")
+        cursorEffectsEnabled = UserDefaults.standard.bool(forKey: "trackpad.cursorEffects")
         if UserDefaults.standard.object(forKey: "trackpad.grainSpacing") != nil {
             grainSpacing = UserDefaults.standard.double(forKey: "trackpad.grainSpacing")
         }
-        trackpadEnhancer.onTick = { [weak self] in self?.trackpadTickRequests += 1 }
+        trackpadEnhancer.onTick = { [weak self] feedback in
+            guard let self else { return }
+            self.trackpadTickRequests += 1
+            if self.cursorEffectsEnabled { self.cursorEffects.show(feedback) }
+        }
         preferredDeviceUID = UserDefaults.standard.string(forKey: "audio.deviceUID") ?? ""
         outputStrength = UserDefaults.standard.object(forKey: "audio.strength") == nil
             ? 0.25 : UserDefaults.standard.double(forKey: "audio.strength")
@@ -170,6 +177,7 @@ final class AppModel: ObservableObject {
         audio.stop()
         trackpad.stop()
         trackpadEnhancer.stop()
+        cursorEffects.stop()
         if mode == .trackpad { suspendInformationSources() }
         ambientPlaybackEnabled = false
         outputMode = mode
@@ -223,6 +231,12 @@ final class AppModel: ObservableObject {
         syncTrackpadEnhancements()
     }
 
+    func setCursorEffectsEnabled(_ enabled: Bool) {
+        cursorEffectsEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: "trackpad.cursorEffects")
+        if !enabled { cursorEffects.stop() }
+    }
+
     func setGrainSpacing(_ spacing: Double) {
         grainSpacing = min(40, max(8, spacing))
         UserDefaults.standard.set(grainSpacing, forKey: "trackpad.grainSpacing")
@@ -232,6 +246,7 @@ final class AppModel: ObservableObject {
     private func syncTrackpadEnhancements() {
         guard outputMode == .trackpad, !isPaused else {
             trackpadEnhancer.stop()
+            cursorEffects.stop()
             return
         }
         let monitoringAvailable = trackpadEnhancer.configure(
@@ -269,6 +284,7 @@ final class AppModel: ObservableObject {
         audio.stop()
         trackpad.stop()
         trackpadEnhancer.stop()
+        cursorEffects.stop()
         ambientPlaybackEnabled = false
         isPaused = true
         status = "Stopped."
@@ -280,6 +296,7 @@ final class AppModel: ObservableObject {
             audio.stop()
             trackpad.stop()
             trackpadEnhancer.stop()
+            cursorEffects.stop()
             status = "All haptics paused."
         } else {
             status = "Haptics ready."

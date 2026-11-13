@@ -33,6 +33,17 @@ enum ClickRipple: Equatable {
     }
 }
 
+enum TrackpadVisualKind {
+    case scrollGrain
+    case dragTick
+    case clickRipple(isDouble: Bool, stage: Int)
+}
+
+struct TrackpadFeedbackEvent {
+    let kind: TrackpadVisualKind
+    let location: NSPoint
+}
+
 /// Distinguishes a click from a drag and recognises AppKit's double-click count.
 struct ClickRippleClassifier {
     private var sawDown = false
@@ -62,10 +73,10 @@ struct ClickRippleClassifier {
     }
 }
 
-/// Reads only scroll and drag motion. It never changes or stores the input events.
+/// Reads scroll, drag, and click events. It never changes or stores the input events.
 @MainActor
 final class TrackpadInteractionEnhancer {
-    var onTick: (() -> Void)?
+    var onTick: ((TrackpadFeedbackEvent) -> Void)?
 
     private let output: TrackpadHapticOutput
     private var globalMonitor: Any?
@@ -123,7 +134,9 @@ final class TrackpadInteractionEnhancer {
         case .scrollWheel where scrollEnabled:
             guard event.hasPreciseScrollingDeltas, event.momentumPhase.isEmpty else { return }
             let movement = abs(event.scrollingDeltaX) + abs(event.scrollingDeltaY)
-            if scrollGate.feed(movement, at: time) { tick(at: time) }
+            if scrollGate.feed(movement, at: time) {
+                tick(at: time, kind: .scrollGrain, location: NSEvent.mouseLocation)
+            }
         case .leftMouseDown:
             lastDragPoint = NSEvent.mouseLocation
             dragGate.reset()
@@ -134,28 +147,34 @@ final class TrackpadInteractionEnhancer {
             defer { lastDragPoint = point }
             guard let previous = lastDragPoint else { return }
             let movement = hypot(point.x - previous.x, point.y - previous.y)
-            if dragGate.feed(movement, at: time) { tick(at: time) }
+            if dragGate.feed(movement, at: time) {
+                tick(at: time, kind: .dragTick, location: point)
+            }
         case .leftMouseDragged:
             clickClassifier.mouseDragged()
         case .leftMouseUp:
             lastDragPoint = nil
             dragGate.reset()
             if let ripple = clickClassifier.mouseUp(clickCount: event.clickCount), clickEnabled {
-                playClickRipple(ripple)
+                playClickRipple(ripple, at: NSEvent.mouseLocation)
             }
         default:
             break
         }
     }
 
-    private func playClickRipple(_ ripple: ClickRipple) {
+    private func playClickRipple(_ ripple: ClickRipple, at location: NSPoint) {
         cancelClickRipple()
         clickTask = Task {
-            for wait in ripple.waits {
+            for (stage, wait) in ripple.waits.enumerated() {
                 do { try await Task.sleep(for: wait) }
                 catch { return }
                 guard !Task.isCancelled else { return }
-                tick(at: ProcessInfo.processInfo.systemUptime)
+                tick(
+                    at: ProcessInfo.processInfo.systemUptime,
+                    kind: .clickRipple(isDouble: ripple == .double, stage: stage),
+                    location: location
+                )
             }
         }
     }
@@ -165,10 +184,10 @@ final class TrackpadInteractionEnhancer {
         clickTask = nil
     }
 
-    private func tick(at time: TimeInterval) {
+    private func tick(at time: TimeInterval, kind: TrackpadVisualKind, location: NSPoint) {
         guard time - lastFeedbackAt >= 0.10 else { return }
         lastFeedbackAt = time
         output.tick()
-        onTick?()
+        onTick?(TrackpadFeedbackEvent(kind: kind, location: location))
     }
 }

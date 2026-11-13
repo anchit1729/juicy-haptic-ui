@@ -33,6 +33,14 @@ struct TrackpadEnhancementsView: View {
             ))
             Text("A single click gets two trailing ripples. A double click gets three wider ripples. Dragging never starts a click splash.")
                 .font(.caption).foregroundStyle(.secondary)
+            Toggle("Cursor accents", isOn: Binding(
+                get: { model.cursorEffectsEnabled },
+                set: { model.setCursorEffectsEnabled($0) }
+            ))
+            Text("Sand grains follow scroll taps. Drag ticks flash as small marks. Click taps spread coloured rings from the click point.")
+                .font(.caption).foregroundStyle(.secondary)
+            Text("Visuals appear only with enabled interaction effects. They leave the system cursor and pointer input alone.")
+                .font(.caption).foregroundStyle(.secondary)
             Text("The app reads only scroll, drag, and click events. It does not read keys or screen content.")
                 .font(.caption).foregroundStyle(.secondary)
             Text("Tap requests: \(model.trackpadTickRequests)")

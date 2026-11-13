@@ -38,6 +38,10 @@ private struct MenuContentView: View {
                 get: { model.splashClicksEnabled },
                 set: { model.setSplashClicksEnabled($0) }
             ))
+            Toggle("Cursor accents", isOn: Binding(
+                get: { model.cursorEffectsEnabled },
+                set: { model.setCursorEffectsEnabled($0) }
+            ))
         }
         Button("Stop All") { model.stop() }
         Divider()
